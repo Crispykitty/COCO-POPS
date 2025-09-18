@@ -2,6 +2,10 @@ package frontend.tokenizer;
 
 import frontend.tokens.Token;
 import frontend.tokens.TokenKind;
+import frontend.lexer.SPLLexer;
+
+import frontend.tokenizer.ILexer;
+import frontend.tokenizer.Tokenizer;
 
 public class TokenizerTest {
     public static void main(String[] args) {
@@ -99,7 +103,7 @@ public class TokenizerTest {
         System.out.println("Input: " + input);
         System.out.println("Tokens:");
         
-        ILexer lexer = new LexerStub(input);
+        ILexer lexer = new SPLLexer(input);
         Tokenizer tokenizer = new Tokenizer(lexer);
         
         try {
