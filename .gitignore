@@ -64,6 +64,27 @@ Thumbs.db
 *.parse
 *.ast
 
+# ANTLR Generated Files
+# Generated Java source files
+**/target/generated-sources/antlr4/
+src/target/generated-sources/
+target/generated-sources/
+
+# ANTLR intermediate files (tokens, interp files)
+*.interp
+*.tokens
+**/*.interp
+**/*.tokens
+
+# Old ANTLR output directory (if using custom output location)
+**/frontend/parser/antlr/
+src/frontend/parser/antlr/
+
+# Maven target directories (comprehensive coverage)
+target/
+**/target/
+src/target/
+
 # Keep test files but ignore generated outputs
 test/*.tokens
 test/*.parse
