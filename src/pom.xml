@@ -27,7 +27,7 @@
     </dependencies>
     
     <build>
-        <sourceDirectory>.</sourceDirectory>
+        <sourceDirectory>${basedir}</sourceDirectory>
         <plugins>
             <!-- ANTLR Maven Plugin -->
             <plugin>
@@ -35,7 +35,7 @@
                 <artifactId>antlr4-maven-plugin</artifactId>
                 <version>${antlr.version}</version>
                 <configuration>
-                    <sourceDirectory>${basedir}/main/antlr4</sourceDirectory>
+                    <sourceDirectory>${basedir}/frontend/parser/grammar</sourceDirectory>
                     <outputDirectory>${basedir}/target/generated-sources/antlr4</outputDirectory>
                     <listener>true</listener>
                     <visitor>true</visitor>
@@ -62,6 +62,27 @@
                     <source>11</source>
                     <target>11</target>
                 </configuration>
+            </plugin>
+            
+            <!-- Build Helper Plugin to add generated sources -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.4.0</version>
+                <executions>
+                    <execution>
+                        <id>add-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${basedir}/target/generated-sources/antlr4</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
