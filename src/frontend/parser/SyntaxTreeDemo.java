@@ -10,11 +10,13 @@ public class SyntaxTreeDemo {
     
     public static void main(String[] args) {
         // Test different SPL programs to see their tree structures
-        testSimpleProgram();
-        testProgramWithVariables();
-        testProgramWithProcedures();
-        testProgramWithFunctions();
-        testComplexProgram();
+        //testSimpleProgram();
+        //testProgramWithVariables();
+        //testProgramWithProcedures();
+        //testProgramWithFunctions();
+        //testComplexProgram();
+        //testErrorCases();
+        testCustomShadowing();
     }
     
     /**
@@ -88,29 +90,54 @@ public class SyntaxTreeDemo {
                         "  halt }";
         visualizeProgram(program);
     }
+
+    private static void testErrorCases() {
+        System.out.println("TEST 6: PROGRAM WITH SEMANTIC ERRORS");
+        System.out.println("=" + "=".repeat(50));
+        String program = "glob { x x } " + // Duplicate global variable
+                        "proc { foo(x) { local { x } x = 1 } } " + // Shadowing parameter
+                        "func { bar() { local { } return z } } " + // Undeclared variable z
+                        "main { var { y } z = 1 }"; // Undeclared variable z
+        visualizeProgram(program);
+    }
+
+    private static void testCustomShadowing() {
+    System.out.println("TEST 7: CUSTOM SHADOWING TEST");
+    System.out.println("=" + "=".repeat(50));
+    String program = "glob { } proc { foo(x) { local { x } x = 1 } } func { } main { var { } halt }";
+    visualizeProgram(program);
+}
     
     /**
      * Helper method to parse and visualize a program
      */
-    private static void visualizeProgram(String program) {
+   private static void visualizeProgram(String program) {
         System.out.println("SPL Program:");
         System.out.println(program);
         System.out.println();
-        
+
         try {
             SPLParserWrapper parser = new SPLParserWrapper(program);
             SPLParser.Spl_progContext tree = parser.parse();
-            
-            // Create a dummy parser for tree visualization (ANTLR requirement)
             SPLParser dummyParser = new SPLParser(null);
-            
-            // Display the visual tree structure
-            VisualSyntaxTreeExtractor.displayTree(tree, dummyParser);
-            
-            // Optional: Show tree with node IDs for symbol table work
-            System.out.println("TREE WITH NODE IDS (for Symbol Table):");
-            VisualSyntaxTreeExtractor.displayTreeWithNodeIds(tree, dummyParser);
-            
+            //System.out.println("Generating syntax tree...");
+            //VisualSyntaxTreeExtractor.displayTree(tree, dummyParser);
+            //System.out.println("Assigning node IDs...");
+            //VisualSyntaxTreeExtractor.assignNodeIds(tree, dummyParser);
+
+            System.out.println("Generating symbol table...");
+            SymbolTable symbolTable = parser.getSymbolTable();
+            System.out.println("SYMBOL TABLE:");
+            symbolTable.getTable().forEach((id, entry) -> System.out.println(entry));
+
+            System.out.println("\nVALIDATION RESULTS:");
+            ValidationResult result = parser.validate();
+            if (result.hasErrors()) {
+                result.getErrors().forEach(error -> System.out.println("Error: " + error));
+            } else {
+                System.out.println("No semantic errors detected.");
+            }
+
         } catch (ParseException e) {
             System.err.println("Parser errors found:");
             System.err.println(e.getMessage());
@@ -118,10 +145,10 @@ public class SyntaxTreeDemo {
                 e.getErrors().forEach(error -> System.err.println("  " + error));
             }
         } catch (Exception e) {
-            System.err.println("Error parsing program: " + e.getMessage());
+            System.err.println("Error during semantic analysis: " + e.getMessage());
             e.printStackTrace();
         }
-        
+
         System.out.println("\n" + "=".repeat(70) + "\n");
     }
     

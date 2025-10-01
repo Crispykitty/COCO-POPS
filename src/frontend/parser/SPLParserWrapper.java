@@ -86,53 +86,30 @@ public class SPLParserWrapper {
         ProgramInfo info = new ProgramInfo();
         
         // Extract information using ANTLR visitor pattern
-        SPLInfoExtractor extractor = new SPLInfoExtractor();
+        VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping = VisualSyntaxTreeExtractor.assignNodeIds(parseTree, new SPLParser(null));
+        SPLInfoExtractor extractor = new SPLInfoExtractor(nodeIdMapping);
         extractor.visit(parseTree);
         
         return extractor.getProgramInfo();
     }
-    
+
+    public SymbolTable getSymbolTable() throws ParseException {
+        parse();
+        VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping = VisualSyntaxTreeExtractor.assignNodeIds(parseTree, new SPLParser(null));
+        SPLInfoExtractor extractor = new SPLInfoExtractor(nodeIdMapping);
+        extractor.visit(parseTree);
+        return extractor.getSymbolTable();
+    }
+
     /**
      * Validate that the program follows SPL semantics
      */
     public ValidationResult validate() throws ParseException {
-        ProgramInfo info = parseAndExtractInfo();
-        ValidationResult result = new ValidationResult();
-        
-        // Basic semantic checks
-        validateVariableUsage(info, result);
-        validateProcedureUsage(info, result);
-        validateFunctionUsage(info, result);
-        
-        return result;
-    }
-    
-    private void validateVariableUsage(ProgramInfo info, ValidationResult result) {
-        // Check if all used variables are declared
-        Set<String> declaredVars = new HashSet<>(info.globalVariables);
-        declaredVars.addAll(info.mainLocalVariables);
-        
-        for (String usedVar : info.usedVariables) {
-            if (!declaredVars.contains(usedVar)) {
-                result.addError("Undeclared variable: " + usedVar);
-            }
-        }
-    }
-    
-    private void validateProcedureUsage(ProgramInfo info, ValidationResult result) {
-        for (String usedProc : info.procedureCalls) {
-            if (!info.procedures.containsKey(usedProc)) {
-                result.addError("Undeclared procedure: " + usedProc);
-            }
-        }
-    }
-    
-    private void validateFunctionUsage(ProgramInfo info, ValidationResult result) {
-        for (String usedFunc : info.functionCalls) {
-            if (!info.functions.containsKey(usedFunc)) {
-                result.addError("Undeclared function: " + usedFunc);
-            }
-        }
+        parse();
+        VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping = VisualSyntaxTreeExtractor.assignNodeIds(parseTree, new SPLParser(null));
+        SPLInfoExtractor extractor = new SPLInfoExtractor(nodeIdMapping);
+        extractor.visit(parseTree);
+        return extractor.getValidationResult();
     }
     
     /**
@@ -330,57 +307,323 @@ class ParsingStats {
 /**
  * ANTLR visitor to extract program information
  */
+
+// ... (keep all other classes in SPLParserWrapper.java unchanged) ...
+
 class SPLInfoExtractor extends SPLBaseVisitor<Void> {
+    private SymbolTable symbolTable = new SymbolTable();
     private ProgramInfo info = new ProgramInfo();
-    
+    private ValidationResult validationResult = new ValidationResult();
+    private Stack<String> scopeStack = new Stack<>();
+    private VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping;
+    private String currentProcedureOrFunction = null;
+
+    public SPLInfoExtractor(VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping) {
+        this.nodeIdMapping = nodeIdMapping;
+    }
+
+    public SymbolTable getSymbolTable() {
+        return symbolTable;
+    }
+
     public ProgramInfo getProgramInfo() {
         return info;
     }
-    
+
+    public ValidationResult getValidationResult() {
+        return validationResult;
+    }
+
+    private int getNodeId(ParseTree ctx) {
+        Integer id = nodeIdMapping.getId(ctx);
+        if (id == null) {
+            throw new IllegalStateException("Node ID not assigned for " + ctx.getText());
+        }
+        return id;
+    }
+
+    private boolean isDuplicateInScope(String name, String type, String scope) {
+        for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+            if (entry.name.equals(name) && entry.scope.equals(scope) && entry.type.equals(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasNameConflict(String name, String type) {
+        for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+            if (entry.name.equals(name) && !entry.type.equals(type) && entry.scope.equals("Everywhere")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isShadowingParam(String name, String scope) {
+        for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+            if (entry.name.equals(name) && entry.type.equals("parameter") && entry.scope.equals(scope)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isVariableDeclared(String name, String currentScope) {
+        for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+            if (entry.name.equals(name)) {
+                if (entry.type.equals("variable")) {
+                    if (currentScope.equals("Local") && (entry.scope.equals("Local") || entry.scope.equals("Global"))) {
+                        return true;
+                    } else if (currentScope.equals("Main") && (entry.scope.equals("Main") || entry.scope.equals("Global"))) {
+                        return true;
+                    }
+                } else if (entry.type.equals("parameter") && entry.scope.equals(currentScope)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void checkVariableUsage(String varName, ParseTree ctx) {
+        System.out.println("Checking variable '" + varName + "' in scope " + scopeStack.peek() + ", Node ID: " + getNodeId(ctx));
+        int nodeId = getNodeId(ctx);
+        if (!isVariableDeclared(varName, scopeStack.peek())) {
+            validationResult.addError("Undeclared variable '" + varName + "' at Node ID " + nodeId);
+        } else {
+            info.recordVariableUsage(varName);
+        }
+    }
+
+    @Override
+    public Void visitSpl_prog(SPLParser.Spl_progContext ctx) {
+        scopeStack.push("Everywhere");
+        System.out.println("Visiting spl_prog, scopeStack: " + scopeStack);
+        super.visitSpl_prog(ctx);
+        scopeStack.pop();
+        return null;
+    }
+
+    @Override
+    public Void visitMainprog(SPLParser.MainprogContext ctx) {
+        scopeStack.push("Main");
+        System.out.println("Visiting mainprog, scopeStack: " + scopeStack);
+        super.visitMainprog(ctx);
+        scopeStack.pop();
+        return null;
+    }
+
     @Override
     public Void visitVariables(SPLParser.VariablesContext ctx) {
-        // Extract global variables
-        if (ctx.var() != null) {
-            String varName = ctx.var().IDENT().getText();
-            info.addGlobalVariable(varName);
+        String currentScope = scopeStack.peek().equals("Everywhere") ? "Global" : scopeStack.peek();
+        scopeStack.push(currentScope);
+        System.out.println("Visiting variables in scope: " + currentScope + ", Node ID: " + getNodeId(ctx));
+
+        // Collect all variable names and their node IDs
+        List<Map.Entry<String, Integer>> varNames = new ArrayList<>();
+        SPLParser.VariablesContext current = ctx;
+        while (current != null && current.var() != null) {
+            String varName = current.var().IDENT().getText();
+            int nodeId = getNodeId(current.var());
+            varNames.add(new AbstractMap.SimpleEntry<>(varName, nodeId));
+            current = current.variables();
         }
-        return super.visitVariables(ctx);
+
+        // Check for duplicates and add to symbol table
+        Set<String> seen = new HashSet<>();
+        for (Map.Entry<String, Integer> entry : varNames) {
+            String varName = entry.getKey();
+            int nodeId = entry.getValue();
+            System.out.println("Processing variable: " + varName + ", Node ID: " + nodeId);
+            if (seen.contains(varName)) {
+                validationResult.addError("Duplicate variable '" + varName + "' in " + currentScope + " scope at Node ID " + nodeId);
+                symbolTable.addEntry(nodeId, varName, currentScope, "variable", 0); // Add even if duplicate
+            } else {
+                seen.add(varName);
+                if (!hasNameConflict(varName, "variable")) {
+                    symbolTable.addEntry(nodeId, varName, currentScope, "variable", 0);
+                    if (currentScope.equals("Global")) {
+                        info.addGlobalVariable(varName);
+                    } else if (currentScope.equals("Main")) {
+                        info.addMainLocalVariable(varName);
+                    }
+                }
+            }
+        }
+
+        super.visitVariables(ctx);
+        scopeStack.pop();
+        return null;
     }
-    
+
     @Override
     public Void visitPdef(SPLParser.PdefContext ctx) {
-        // Extract procedure definition
         String procName = ctx.name().IDENT().getText();
-        int paramCount = countParameters(ctx.param());
-        info.addProcedure(procName, paramCount);
-        return super.visitPdef(ctx);
+        int nodeId = getNodeId(ctx.name());
+        currentProcedureOrFunction = procName;
+        System.out.println("Visiting procedure: " + procName + ", Node ID: " + nodeId);
+
+        if (isDuplicateInScope(procName, "procedure", "Everywhere")) {
+            validationResult.addError("Duplicate procedure '" + procName + "' at Node ID " + nodeId);
+        } else if (hasNameConflict(procName, "procedure")) {
+            validationResult.addError("Procedure '" + procName + "' conflicts with variable/function in Everywhere scope at Node ID " + nodeId);
+        } else {
+            int paramCount = countParameters(ctx.param());
+            symbolTable.addEntry(nodeId, procName, "Everywhere", "procedure", paramCount);
+            info.addProcedure(procName, paramCount);
+        }
+
+        scopeStack.push("Local");
+        super.visitPdef(ctx);
+        scopeStack.pop();
+        currentProcedureOrFunction = null;
+        return null;
     }
-    
+
     @Override
     public Void visitFdef(SPLParser.FdefContext ctx) {
-        // Extract function definition  
         String funcName = ctx.name().IDENT().getText();
-        int paramCount = countParameters(ctx.param());
-        info.addFunction(funcName, paramCount);
-        return super.visitFdef(ctx);
+        int nodeId = getNodeId(ctx.name());
+        currentProcedureOrFunction = funcName;
+        System.out.println("Visiting function: " + funcName + ", Node ID: " + nodeId);
+
+        if (isDuplicateInScope(funcName, "function", "Everywhere")) {
+            validationResult.addError("Duplicate function '" + funcName + "' at Node ID " + nodeId);
+        } else if (hasNameConflict(funcName, "function")) {
+            validationResult.addError("Function '" + funcName + "' conflicts with variable/procedure in Everywhere scope at Node ID " + nodeId);
+        } else {
+            int paramCount = countParameters(ctx.param());
+            symbolTable.addEntry(nodeId, funcName, "Everywhere", "function", paramCount);
+            info.addFunction(funcName, paramCount);
+        }
+
+        scopeStack.push("Local");
+        super.visitFdef(ctx);
+        scopeStack.pop();
+        currentProcedureOrFunction = null;
+        return null;
     }
-    
+
+    @Override
+    public Void visitParam(SPLParser.ParamContext ctx) {
+        if (ctx.maxthree() != null && ctx.maxthree().var() != null) {
+            Set<String> seen = new HashSet<>();
+            for (SPLParser.VarContext varCtx : ctx.maxthree().var()) {
+                String paramName = varCtx.IDENT().getText();
+                int nodeId = getNodeId(varCtx);
+                System.out.println("Processing parameter: " + paramName + ", Node ID: " + nodeId);
+                if (seen.contains(paramName)) {
+                    validationResult.addError("Duplicate parameter '" + paramName + "' in " + scopeStack.peek() + " scope at Node ID " + nodeId);
+                } else {
+                    seen.add(paramName);
+                    symbolTable.addEntry(nodeId, paramName, scopeStack.peek(), "parameter", 0);
+                }
+            }
+        }
+        return super.visitParam(ctx);
+    }
+
+    @Override
+    public Void visitMaxthree(SPLParser.MaxthreeContext ctx) {
+        if (ctx.getParent() instanceof SPLParser.BodyContext && ctx.var() != null) {
+            Set<String> seen = new HashSet<>();
+            for (SPLParser.VarContext varCtx : ctx.var()) {
+                String varName = varCtx.IDENT().getText();
+                int nodeId = getNodeId(varCtx);
+                System.out.println("Processing local variable: " + varName + ", Node ID: " + nodeId);
+                if (seen.contains(varName)) {
+                    validationResult.addError("Duplicate local variable '" + varName + "' in " + scopeStack.peek() + " scope at Node ID " + nodeId);
+                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
+                } else if (isShadowingParam(varName, scopeStack.peek())) {
+                    validationResult.addError("Local variable '" + varName + "' shadows parameter in " + scopeStack.peek() + " scope at Node ID " + nodeId);
+                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
+                } else {
+                    seen.add(varName);
+                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
+                }
+            }
+        }
+        return super.visitMaxthree(ctx);
+    }
+
+    @Override
+    public Void visitAtom(SPLParser.AtomContext ctx) {
+        if (ctx.var() != null && ctx.var().IDENT() != null) {
+            String varName = ctx.var().IDENT().getText();
+            checkVariableUsage(varName, ctx); // Use ATOM node
+        }
+        return super.visitAtom(ctx);
+    }
+
+    @Override
+    public Void visitOutput(SPLParser.OutputContext ctx) {
+        if (ctx.atom() != null && ctx.atom().var() != null && ctx.atom().var().IDENT() != null) {
+            String varName = ctx.atom().var().IDENT().getText();
+            checkVariableUsage(varName, ctx); // Use ATOM node
+        }
+        return super.visitOutput(ctx);
+    }
+
+    @Override
+    public Void visitInput(SPLParser.InputContext ctx) {
+        if (ctx.atom() != null) {
+            for (SPLParser.AtomContext atomCtx : ctx.atom()) {
+                if (atomCtx.var() != null && atomCtx.var().IDENT() != null) {
+                    String varName = atomCtx.var().IDENT().getText();
+                    checkVariableUsage(varName, atomCtx); // Use ATOM node
+                }
+            }
+        }
+        return super.visitInput(ctx);
+    }
+
     @Override
     public Void visitAssign(SPLParser.AssignContext ctx) {
-        // Record variable usage and function calls
-        if (ctx.var() != null) {
-            info.recordVariableUsage(ctx.var().IDENT().getText());
+        if (ctx.var() != null && ctx.var().IDENT() != null) {
+            String varName = ctx.var().IDENT().getText();
+            checkVariableUsage(varName, ctx.var()); // Use ASSIGN node
         }
-        if (ctx.name() != null) {
-            info.recordFunctionCall(ctx.name().IDENT().getText());
+        if (ctx.name() != null && ctx.name().IDENT() != null) {
+            String funcName = ctx.name().IDENT().getText();
+            int nodeId = getNodeId(ctx.name());
+            info.recordFunctionCall(funcName);
+            boolean isDeclared = false;
+            for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+                if (entry.name.equals(funcName) && entry.type.equals("function") && entry.scope.equals("Everywhere")) {
+                    isDeclared = true;
+                    break;
+                }
+            }
+            if (!isDeclared) {
+                validationResult.addError("Undeclared function '" + funcName + "' at Node ID " + nodeId);
+            }
         }
         return super.visitAssign(ctx);
     }
-    
+
+    @Override
+    public Void visitInstr(SPLParser.InstrContext ctx) {
+        if (ctx.name() != null && ctx.name().IDENT() != null) {
+            String procName = ctx.name().IDENT().getText();
+            int nodeId = getNodeId(ctx.name());
+            info.recordProcedureCall(procName);
+            boolean isDeclared = false;
+            for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
+                if (entry.name.equals(procName) && entry.type.equals("procedure") && entry.scope.equals("Everywhere")) {
+                    isDeclared = true;
+                    break;
+                }
+            }
+            if (!isDeclared) {
+                validationResult.addError("Undeclared procedure '" + procName + "' at Node ID " + nodeId);
+            }
+        }
+        return super.visitInstr(ctx);
+    }
+
     private int countParameters(SPLParser.ParamContext param) {
         if (param == null || param.maxthree() == null) return 0;
-        SPLParser.MaxthreeContext maxthree = param.maxthree();
-        if (maxthree.var() == null) return 0;
-        return maxthree.var().size();
+        return param.maxthree().var() != null ? param.maxthree().var().size() : 0;
     }
 }

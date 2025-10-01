@@ -5,6 +5,8 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import frontend.parser.antlr.SPLParser;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Visual Syntax Tree Extractor for SPL
@@ -12,53 +14,57 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class VisualSyntaxTreeExtractor {
 
-    /**
-     * Extract and display the syntax tree structure with visual indentation
-     */
-    public static void displayTree(ParseTree tree, SPLParser parser) {
-        System.out.println("=== SPL SYNTAX TREE STRUCTURE ===");
-        printTreeStructure(tree, 0, parser);
-        System.out.println("=== END TREE STRUCTURE ===\n");
-    }
+    public static class NodeIdMapping {
+        private Map<ParseTree, Integer> nodeIds = new HashMap<>();
+        private int count = 1;
 
-    /**
-     * Recursively print tree structure with proper indentation
-     */
-    private static void printTreeStructure(ParseTree tree, int depth, SPLParser parser) {
-        String indent = "│  ".repeat(depth);
-        String prefix = depth > 0 ? "├─ " : "";
-        
-        if (tree instanceof TerminalNode) {
-            // Terminal nodes (actual tokens)
-            System.out.println(indent + prefix + "TOKEN: \"" + tree.getText() + "\"");
-        } else if (tree instanceof ParserRuleContext) {
-            // Rule nodes
-            ParserRuleContext ruleContext = (ParserRuleContext) tree;
-            String ruleName = parser.getRuleNames()[ruleContext.getRuleIndex()];
-            System.out.println(indent + prefix + "RULE: " + ruleName.toUpperCase());
-            
-            // Print all children
-            for (int i = 0; i < tree.getChildCount(); i++) {
-                printTreeStructure(tree.getChild(i), depth + 1, parser);
-            }
+        public int getNextId() {
+            return count++;
+        }
+
+        public void assignId(ParseTree node) {
+            nodeIds.put(node, getNextId());
+        }
+
+        public Integer getId(ParseTree node) {
+            return nodeIds.get(node);
+        }
+
+        public Map<ParseTree, Integer> getNodeIds() {
+            return new HashMap<>(nodeIds);
+        }
+
+        public int getCount() {
+            return count - 1;
         }
     }
 
-    /**
-     * Extract tree with node IDs and positions for symbol table linking
-     */
-    public static void displayTreeWithNodeIds(ParseTree tree, SPLParser parser) {
+    public static NodeIdMapping assignNodeIds(ParseTree tree, SPLParser parser) {
+        NodeIdMapping mapping = new NodeIdMapping();
+        assignNodeIdsRecursive(tree, mapping);
         System.out.println("=== SPL SYNTAX TREE WITH NODE IDS ===");
-        NodeIdCounter counter = new NodeIdCounter();
-        printTreeWithIds(tree, 0, parser, counter);
+        printTreeWithIds(tree, 0, parser, mapping);
         System.out.println("=== END TREE WITH IDS ===\n");
-        System.out.println("Total nodes processed: " + counter.getCount());
+        System.out.println("Total nodes processed: " + mapping.getCount());
+        return mapping;
     }
 
-    private static void printTreeWithIds(ParseTree tree, int depth, SPLParser parser, NodeIdCounter counter) {
+    private static void assignNodeIdsRecursive(ParseTree tree, NodeIdMapping mapping) {
+        mapping.assignId(tree);
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            assignNodeIdsRecursive(tree.getChild(i), mapping);
+        }
+    }
+
+    // FIX: Use the ID from the mapping instead of calling getNextId()
+    private static void printTreeWithIds(ParseTree tree, int depth, SPLParser parser, NodeIdMapping mapping) {
         String indent = "│  ".repeat(depth);
         String prefix = depth > 0 ? "├─ " : "";
-        int nodeId = counter.getNextId();
+        Integer nodeId = mapping.getId(tree);  // <-- USE THE EXISTING ID!
+        
+        if (nodeId == null) {
+            throw new IllegalStateException("Node ID not found for tree node: " + tree.getText());
+        }
         
         if (tree instanceof TerminalNode) {
             System.out.println(indent + prefix + "[ID:" + nodeId + "] TOKEN: \"" + tree.getText() + "\"");
@@ -69,14 +75,35 @@ public class VisualSyntaxTreeExtractor {
             
             // Recursively process children
             for (int i = 0; i < tree.getChildCount(); i++) {
-                printTreeWithIds(tree.getChild(i), depth + 1, parser, counter);
+                printTreeWithIds(tree.getChild(i), depth + 1, parser, mapping);
             }
         }
     }
 
-    /**
-     * Extract tree as a hierarchical text representation
-     */
+    // Keep other methods unchanged
+    public static void displayTree(ParseTree tree, SPLParser parser) {
+        System.out.println("=== SPL SYNTAX TREE STRUCTURE ===");
+        printTreeStructure(tree, 0, parser);
+        System.out.println("=== END TREE STRUCTURE ===\n");
+    }
+
+    private static void printTreeStructure(ParseTree tree, int depth, SPLParser parser) {
+        String indent = "│  ".repeat(depth);
+        String prefix = depth > 0 ? "├─ " : "";
+        
+        if (tree instanceof TerminalNode) {
+            System.out.println(indent + prefix + "TOKEN: \"" + tree.getText() + "\"");
+        } else if (tree instanceof ParserRuleContext) {
+            ParserRuleContext ruleContext = (ParserRuleContext) tree;
+            String ruleName = parser.getRuleNames()[ruleContext.getRuleIndex()];
+            System.out.println(indent + prefix + "RULE: " + ruleName.toUpperCase());
+            
+            for (int i = 0; i < tree.getChildCount(); i++) {
+                printTreeStructure(tree.getChild(i), depth + 1, parser);
+            }
+        }
+    }
+
     public static String extractTreeAsText(ParseTree tree, SPLParser parser) {
         StringBuilder sb = new StringBuilder();
         buildTextTree(tree, sb, 0, parser);
@@ -96,34 +123,6 @@ public class VisualSyntaxTreeExtractor {
             for (int i = 0; i < tree.getChildCount(); i++) {
                 buildTextTree(tree.getChild(i), sb, depth + 1, parser);
             }
-        }
-    }
-
-    /**
-     * Extract tree with Node IDs (needed for symbol table)
-     * Note: For actual symbol table implementation, you'll need to create
-     * your own mapping from nodes to IDs since ANTLR contexts don't
-     * directly support user objects in this version.
-     */
-    public static void assignNodeIds(ParseTree tree) {
-        // This method demonstrates the concept but doesn't modify the tree
-        // For symbol table work, create a HashMap<ParseTree, Integer> mapping
-        System.out.println("Node ID assignment completed conceptually.");
-        System.out.println("For symbol table work, create: Map<ParseTree, Integer> nodeIds = new HashMap<>();");
-    }
-
-    /**
-     * Helper class for node ID generation
-     */
-    private static class NodeIdCounter {
-        private int count = 1;
-        
-        public int getNextId() {
-            return count++;
-        }
-        
-        public int getCount() {
-            return count - 1;
         }
     }
 }

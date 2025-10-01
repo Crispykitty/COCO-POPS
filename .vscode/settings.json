@@ -1,0 +1,9 @@
+{
+	"java.project.sourcePaths": [
+		"src",
+		"src\\frontend\\lexer"
+	],
+	"java.project.referencedLibraries": [
+		"src\\lib\\antlr-4.13.2-complete.jar"
+	]
+}
