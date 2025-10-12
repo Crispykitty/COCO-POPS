@@ -7,11 +7,11 @@ public class SymbolTable {
     private Map<Integer, SymbolEntry> table = new HashMap<>();
 
     public static class SymbolEntry {
-        int nodeId;
-        String name;
-        String scope; // e.g., "Global", "Local", "Main", "Everywhere"
-        String type; // e.g., "variable", "procedure", "function", "parameter"
-        int paramCount; // For procedures/functions
+        public int nodeId;
+        public String name;
+        public String scope; // e.g., "Global", "Local", "Main", "Everywhere"
+        public String type; // e.g., "variable", "procedure", "function", "parameter"
+        public int paramCount; // For procedures/functions
 
         public SymbolEntry(int nodeId, String name, String scope, String type, int paramCount) {
             this.nodeId = nodeId;
