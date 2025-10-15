@@ -69,6 +69,7 @@ Thumbs.db
 **/target/generated-sources/antlr4/
 src/target/generated-sources/
 target/generated-sources/
+target/
 
 # ANTLR intermediate files (tokens, interp files)
 *.interp

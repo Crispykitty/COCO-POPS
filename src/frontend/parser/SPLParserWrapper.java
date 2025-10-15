@@ -7,13 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
-/**
- * Production-ready SPL Parser using ANTLR
- * Integrates with your existing project structure
- */
 public class SPLParserWrapper {
     private String input;
     private SPLParser.Spl_progContext parseTree;
@@ -26,48 +20,27 @@ public class SPLParserWrapper {
         this.errors = new ArrayList<>();
     }
     
-    /**
-     * Constructor to read from file
-     */
     public static SPLParserWrapper fromFile(String filename) throws IOException {
         String content = Files.readString(Paths.get(filename));
         return new SPLParserWrapper(content);
     }
     
-    /**
-     * Main parsing method using ANTLR
-     */
     public SPLParser.Spl_progContext parse() throws ParseException {
         try {
-            // Create ANTLR input stream
-            ANTLRInputStream inputStream = new ANTLRInputStream(input);
-            
-            // Create ANTLR-generated lexer
+            CharStream inputStream = CharStreams.fromString(input);
             SPLLexer lexer = new SPLLexer(inputStream);
-            
-            // Create token stream
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-            
-            // Create ANTLR-generated parser
             SPLParser parser = new SPLParser(tokens);
-            
-            // Add custom error handling
             parser.removeErrorListeners();
             SPLErrorListener errorListener = new SPLErrorListener();
             parser.addErrorListener(errorListener);
-            
-            // Parse starting from spl_prog rule
             parseTree = parser.spl_prog();
-            
-            // Check for parse errors
             if (parser.getNumberOfSyntaxErrors() > 0) {
                 throw new ParseException("Parsing failed with " + 
                     parser.getNumberOfSyntaxErrors() + " syntax errors", 
                     errorListener.getErrors());
             }
-            
             return parseTree;
-            
         } catch (Exception e) {
             if (e instanceof ParseException) {
                 throw e;
@@ -76,20 +49,11 @@ public class SPLParserWrapper {
         }
     }
     
-    /**
-     * Parse and extract basic symbol information
-     * Returns a simple data structure with program components
-     */
     public ProgramInfo parseAndExtractInfo() throws ParseException {
         parse();
-        
-        ProgramInfo info = new ProgramInfo();
-        
-        // Extract information using ANTLR visitor pattern
         VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping = VisualSyntaxTreeExtractor.assignNodeIds(parseTree, new SPLParser(null));
         SPLInfoExtractor extractor = new SPLInfoExtractor(nodeIdMapping);
         extractor.visit(parseTree);
-        
         return extractor.getProgramInfo();
     }
 
@@ -101,9 +65,6 @@ public class SPLParserWrapper {
         return extractor.getSymbolTable();
     }
 
-    /**
-     * Validate that the program follows SPL semantics
-     */
     public ValidationResult validate() throws ParseException {
         parse();
         VisualSyntaxTreeExtractor.NodeIdMapping nodeIdMapping = VisualSyntaxTreeExtractor.assignNodeIds(parseTree, new SPLParser(null));
@@ -112,9 +73,6 @@ public class SPLParserWrapper {
         return extractor.getValidationResult();
     }
     
-    /**
-     * Pretty print the parse tree for debugging
-     */
     public void printParseTree() {
         if (parseTree != null) {
             System.out.println("Parse Tree Structure:");
@@ -122,12 +80,8 @@ public class SPLParserWrapper {
         }
     }
     
-    /**
-     * Get detailed parsing statistics
-     */
     public ParsingStats getStats() {
         if (parseTree == null) return null;
-        
         return new ParsingStats(
             input.length(),
             getTreeDepth(parseTree),
@@ -136,7 +90,6 @@ public class SPLParserWrapper {
         );
     }
     
-    // Helper methods
     private int getTreeDepth(ParseTree tree) {
         if (tree.getChildCount() == 0) return 1;
         int maxDepth = 0;
@@ -165,16 +118,13 @@ class SPLErrorListener extends BaseErrorListener {
     public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
                            int line, int charPositionInLine, String msg,
                            RecognitionException e) {
-        
         String errorMsg = String.format(
             "Line %d:%d - %s", line, charPositionInLine, msg
         );
-        
         if (offendingSymbol instanceof Token) {
             Token token = (Token) offendingSymbol;
             errorMsg += String.format(" (found '%s')", token.getText());
         }
-        
         errors.add(errorMsg);
         System.err.println("SPL Parse Error: " + errorMsg);
     }
@@ -185,39 +135,13 @@ class SPLErrorListener extends BaseErrorListener {
 }
 
 /**
- * Custom exception for parsing errors
- */
-class ParseException extends Exception {
-    private List<String> errors;
-    
-    public ParseException(String message) {
-        super(message);
-        this.errors = new ArrayList<>();
-    }
-    
-    public ParseException(String message, List<String> errors) {
-        super(message);
-        this.errors = new ArrayList<>(errors);
-    }
-    
-    public ParseException(String message, Throwable cause) {
-        super(message, cause);
-        this.errors = new ArrayList<>();
-    }
-    
-    public List<String> getErrors() {
-        return errors;
-    }
-}
-
-/**
  * Data structure to hold extracted program information
  */
 class ProgramInfo {
     public List<String> globalVariables = new ArrayList<>();
     public List<String> mainLocalVariables = new ArrayList<>();
-    public Map<String, Integer> procedures = new HashMap<>();  // name -> param count
-    public Map<String, Integer> functions = new HashMap<>();   // name -> param count
+    public Map<String, Integer> procedures = new HashMap<>();
+    public Map<String, Integer> functions = new HashMap<>();
     public Set<String> usedVariables = new HashSet<>();
     public Set<String> procedureCalls = new HashSet<>();
     public Set<String> functionCalls = new HashSet<>();
@@ -252,34 +176,6 @@ class ProgramInfo {
 }
 
 /**
- * Validation result container
- */
-class ValidationResult {
-    private List<String> errors = new ArrayList<>();
-    private List<String> warnings = new ArrayList<>();
-    
-    public void addError(String error) {
-        errors.add(error);
-    }
-    
-    public void addWarning(String warning) {
-        warnings.add(warning);
-    }
-    
-    public boolean hasErrors() {
-        return !errors.isEmpty();
-    }
-    
-    public List<String> getErrors() {
-        return new ArrayList<>(errors);
-    }
-    
-    public List<String> getWarnings() {
-        return new ArrayList<>(warnings);
-    }
-}
-
-/**
  * Parsing statistics
  */
 class ParsingStats {
@@ -307,9 +203,6 @@ class ParsingStats {
 /**
  * ANTLR visitor to extract program information
  */
-
-// ... (keep all other classes in SPLParserWrapper.java unchanged) ...
-
 class SPLInfoExtractor extends SPLBaseVisitor<Void> {
     private SymbolTable symbolTable = new SymbolTable();
     private ProgramInfo info = new ProgramInfo();
@@ -373,7 +266,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
         for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
             if (entry.name.equals(name)) {
                 if (entry.type.equals("variable")) {
-                    if (currentScope.equals("Local") && (entry.scope.equals("Local") || entry.scope.equals("Global"))) {
+                    if (currentScope.equals("Local") && (entry.scope.equals("Local") || entry.scope.equals("Global") || entry.scope.equals(currentProcedureOrFunction))) {
                         return true;
                     } else if (currentScope.equals("Main") && (entry.scope.equals("Main") || entry.scope.equals("Global"))) {
                         return true;
@@ -420,7 +313,6 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
         scopeStack.push(currentScope);
         System.out.println("Visiting variables in scope: " + currentScope + ", Node ID: " + getNodeId(ctx));
 
-        // Collect all variable names and their node IDs
         List<Map.Entry<String, Integer>> varNames = new ArrayList<>();
         SPLParser.VariablesContext current = ctx;
         while (current != null && current.var() != null) {
@@ -430,7 +322,6 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
             current = current.variables();
         }
 
-        // Check for duplicates and add to symbol table
         Set<String> seen = new HashSet<>();
         for (Map.Entry<String, Integer> entry : varNames) {
             String varName = entry.getKey();
@@ -438,7 +329,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
             System.out.println("Processing variable: " + varName + ", Node ID: " + nodeId);
             if (seen.contains(varName)) {
                 validationResult.addError("Duplicate variable '" + varName + "' in " + currentScope + " scope at Node ID " + nodeId);
-                symbolTable.addEntry(nodeId, varName, currentScope, "variable", 0); // Add even if duplicate
+                symbolTable.addEntry(nodeId, varName, currentScope, "variable", 0);
             } else {
                 seen.add(varName);
                 if (!hasNameConflict(varName, "variable")) {
@@ -534,13 +425,13 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
                 System.out.println("Processing local variable: " + varName + ", Node ID: " + nodeId);
                 if (seen.contains(varName)) {
                     validationResult.addError("Duplicate local variable '" + varName + "' in " + scopeStack.peek() + " scope at Node ID " + nodeId);
-                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
-                } else if (isShadowingParam(varName, scopeStack.peek())) {
+                    symbolTable.addEntry(nodeId, varName, currentProcedureOrFunction != null ? currentProcedureOrFunction : scopeStack.peek(), "variable", 0);
+                } else if (isShadowingParam(varName, currentProcedureOrFunction != null ? currentProcedureOrFunction : scopeStack.peek())) {
                     validationResult.addError("Local variable '" + varName + "' shadows parameter in " + scopeStack.peek() + " scope at Node ID " + nodeId);
-                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
+                    symbolTable.addEntry(nodeId, varName, currentProcedureOrFunction != null ? currentProcedureOrFunction : scopeStack.peek(), "variable", 0);
                 } else {
                     seen.add(varName);
-                    symbolTable.addEntry(nodeId, varName, scopeStack.peek(), "variable", 0);
+                    symbolTable.addEntry(nodeId, varName, currentProcedureOrFunction != null ? currentProcedureOrFunction : scopeStack.peek(), "variable", 0);
                 }
             }
         }
@@ -551,7 +442,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
     public Void visitAtom(SPLParser.AtomContext ctx) {
         if (ctx.var() != null && ctx.var().IDENT() != null) {
             String varName = ctx.var().IDENT().getText();
-            checkVariableUsage(varName, ctx); // Use ATOM node
+            checkVariableUsage(varName, ctx);
         }
         return super.visitAtom(ctx);
     }
@@ -560,7 +451,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
     public Void visitOutput(SPLParser.OutputContext ctx) {
         if (ctx.atom() != null && ctx.atom().var() != null && ctx.atom().var().IDENT() != null) {
             String varName = ctx.atom().var().IDENT().getText();
-            checkVariableUsage(varName, ctx); // Use ATOM node
+            checkVariableUsage(varName, ctx);
         }
         return super.visitOutput(ctx);
     }
@@ -571,7 +462,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
             for (SPLParser.AtomContext atomCtx : ctx.atom()) {
                 if (atomCtx.var() != null && atomCtx.var().IDENT() != null) {
                     String varName = atomCtx.var().IDENT().getText();
-                    checkVariableUsage(varName, atomCtx); // Use ATOM node
+                    checkVariableUsage(varName, atomCtx);
                 }
             }
         }
@@ -582,7 +473,7 @@ class SPLInfoExtractor extends SPLBaseVisitor<Void> {
     public Void visitAssign(SPLParser.AssignContext ctx) {
         if (ctx.var() != null && ctx.var().IDENT() != null) {
             String varName = ctx.var().IDENT().getText();
-            checkVariableUsage(varName, ctx.var()); // Use ASSIGN node
+            checkVariableUsage(varName, ctx.var());
         }
         if (ctx.name() != null && ctx.name().IDENT() != null) {
             String funcName = ctx.name().IDENT().getText();
