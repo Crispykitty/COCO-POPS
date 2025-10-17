@@ -64,7 +64,7 @@ public class SPLParserTestSuite {
         // Test 7: Control structures - IF (FIXED)
         testProgram("IF Statement",
             "glob { x } proc { } func { } " +
-            "main { var { } if ( x gt 0 ) { print x } ; halt }", true);
+            "main { var { } if ( x > 0 ) { print x } ; halt }", true);
         
         // Test 8: Control structures - IF-ELSE (FIXED)
         testProgram("IF-ELSE Statement",
@@ -74,12 +74,12 @@ public class SPLParserTestSuite {
         // Test 9: WHILE loop (FIXED)
         testProgram("WHILE Loop",
             "glob { x } proc { } func { } " +
-            "main { var { } while ( x gt 0 ) { x = ( x minus 1 ) } ; halt }", true);
+            "main { var { } while ( x > 0 ) { x = ( x minus 1 ) } ; halt }", true);
         
         // Test 10: DO-UNTIL loop (FIXED)
         testProgram("DO-UNTIL Loop",
             "glob { x } proc { } func { } " +
-            "main { var { } do { x = ( x plus 1 ) } until ( x gt 10 ) ; halt }", true);
+            "main { var { } do { x = ( x plus 1 ) } until ( x > 10 ) ; halt }", true);
         
         // Test 11: Complex expressions (FIXED)
         testProgram("Complex Expressions",
@@ -96,7 +96,7 @@ public class SPLParserTestSuite {
             "glob { x y } proc { } func { } " +
             "main { var { a b c d e f g h } " +
             "a = ( x plus y ) ; b = ( x minus y ) ; c = ( x mult y ) ; " +
-            "d = ( x div y ) ; e = ( x eq y ) ; f = ( x gt y ) ; " +
+            "d = ( x div y ) ; e = ( x eq y ) ; f = ( x > y ) ; " +
             "g = ( x or y ) ; h = ( x and y ) ; halt }", true);
         
         // Test 14: String output (FIXED)
@@ -160,10 +160,10 @@ public class SPLParserTestSuite {
         testProgram("Nested Control Structures",
             "glob { x y z } proc { } func { } " +
             "main { var { } " +
-            "  if ( x gt 0 ) { " +
-            "    while ( y gt 0 ) { " +
+            "  if ( x > 0 ) { " +
+            "    while ( y > 0 ) { " +
             "      if ( z eq 0 ) { " +
-            "        do { z = ( z plus 1 ) } until ( z gt 5 ) " +
+            "        do { z = ( z plus 1 ) } until ( z > 5 ) " +
             "      } else { y = ( y minus 1 ) } " +
             "    } " +
             "  } else { print \"done\" } ; " +

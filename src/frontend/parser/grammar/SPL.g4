@@ -25,10 +25,10 @@ pdef : name LPAREN param RPAREN LBRACE body RBRACE ;
 funcdefs : // empty
          | fdef funcdefs ;
 
-// FIXED: Functions have simpler structure - no algorithm before return
-fdef : name LPAREN param RPAREN LBRACE LOCAL LBRACE maxthree RBRACE RETURN atom RBRACE ;
+// FIXED: Functions need body with algorithm before return
+fdef : name LPAREN param RPAREN LBRACE body SEMI RETURN atom RBRACE ;
 
-// Function/Procedure Body (for procedures only)
+// Function/Procedure Body
 body : LOCAL LBRACE maxthree RBRACE algo ;
 
 // Parameters (max 3)
@@ -39,18 +39,17 @@ maxthree : // empty
          | var var  
          | var var var ;
 
-// Main Program - CORRECTED to match SPL spec
+// Main Program
 mainprog : VAR LBRACE variables RBRACE algo ;
 
 // Atoms (variables or numbers)
 atom : var
      | NUMBER ;
 
-// Algorithm (sequence of instructions) - CORRECTED
-algo : instr
-     | instr SEMI algo ;
+// Algorithm (sequence of instructions)
+algo : instr (SEMI instr)* SEMI? ;
 
-// Instructions - CORRECTED order and structure
+// Instructions
 instr : HALT
       | PRINT output
       | name LPAREN input RPAREN    // procedure call
@@ -58,7 +57,7 @@ instr : HALT
       | loop
       | branch ;
 
-// Assignment - CORRECTED
+// Assignment
 assign : var ASSIGN name LPAREN input RPAREN  // function call assignment
        | var ASSIGN term ;                     // term assignment
 
@@ -66,9 +65,9 @@ assign : var ASSIGN name LPAREN input RPAREN  // function call assignment
 loop : WHILE term LBRACE algo RBRACE
      | DO LBRACE algo RBRACE UNTIL term ;
 
-// Branching
-branch : IF term LBRACE algo RBRACE
-       | IF term LBRACE algo RBRACE ELSE LBRACE algo RBRACE ;
+// Branching - order matters! if-else must come before plain if
+branch : IF term LBRACE algo RBRACE ELSE LBRACE algo RBRACE
+       | IF term LBRACE algo RBRACE ;
 
 // Output
 output : atom
@@ -128,7 +127,7 @@ NOT    : 'not' ;
 
 // Binary operators
 EQ     : 'eq' ;
-GT     : 'gt' ;
+GT     : '>' ;      // CHANGED: From 'gt' to '>' to match specification
 OR     : 'or' ;
 AND    : 'and' ;
 PLUS   : 'plus' ;

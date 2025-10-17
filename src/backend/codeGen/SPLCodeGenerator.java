@@ -73,22 +73,18 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
     }
 
     @Override
-    public String visitAlgo(SPLParser.AlgoContext ctx) {
-        StringBuilder code = new StringBuilder();
-        if (ctx.instr() != null) {
-            String instrCode = visit(ctx.instr());
-            if (instrCode != null) {
-                code.append(instrCode).append("\n");
-            }
+public String visitAlgo(SPLParser.AlgoContext ctx) {
+    StringBuilder code = new StringBuilder();
+    // New grammar: algo : instr (SEMI instr)* SEMI?
+    // This means ctx.instr() returns a List<InstrContext>
+    for (SPLParser.InstrContext instrCtx : ctx.instr()) {
+        String instrCode = visit(instrCtx);
+        if (instrCode != null && !instrCode.isEmpty()) {
+            code.append(instrCode).append("\n");
         }
-        if (ctx.algo() != null) {
-            String algoCode = visit(ctx.algo());
-            if (algoCode != null) {
-                code.append(algoCode).append("\n");
-            }
-        }
-        return code.toString().trim();
     }
+    return code.toString().trim();
+}
 
     @Override
     public String visitInstr(SPLParser.InstrContext ctx) {
@@ -125,43 +121,148 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
         }
     }
 
-    @Override
-    public String visitBranch(SPLParser.BranchContext ctx) {
-        StringBuilder code = new StringBuilder();
-        String termCode = visit(ctx.term());
-        String tLabel = newLabel("T");
-        String exitLabel = newLabel("Exit");
-
-        String[] termParts = parseTerm(termCode);
-        String t1 = termParts[0];
-        String op = termParts[1];
-        String t2 = termParts[2];
-
-        boolean isNot = ctx.term().unop() != null && ctx.term().unop().NOT() != null;
-        SPLParser.AlgoContext thenAlgo = isNot && ctx.algo().size() > 1 ? ctx.algo(1) : ctx.algo(0);
-        SPLParser.AlgoContext elseAlgo = isNot && ctx.algo().size() > 1 ? ctx.algo(0) : (ctx.algo().size() > 1 ? ctx.algo(1) : null);
-
-        code.append("IF ").append(t1).append(" ").append(op).append(" ").append(t2)
-            .append(" THEN ").append(tLabel).append("\n");
-
-        if (elseAlgo != null) {
-            String elseCode = visit(elseAlgo);
-            if (elseCode != null && !elseCode.isEmpty()) {
-                code.append(elseCode).append("\n");
+@Override
+public String visitBranch(SPLParser.BranchContext ctx) {
+    StringBuilder code = new StringBuilder();
+    
+    SPLParser.TermContext termCtx = ctx.term();
+    boolean hasElse = ctx.algo().size() > 1;
+    
+    // Check if the term has a NOT operator at the top level
+    boolean isNot = false;
+    if (termCtx.unop() != null && termCtx.unop().NOT() != null) {
+        isNot = true;
+        // Unwrap the NOT - get the actual term inside
+        termCtx = termCtx.term(0);
+    }
+    
+    // Determine which algo is "then" and which is "else" based on NOT
+    // If NOT is present, swap them
+    SPLParser.AlgoContext thenAlgo = isNot && hasElse ? ctx.algo(1) : ctx.algo(0);
+    SPLParser.AlgoContext elseAlgo = isNot && hasElse ? ctx.algo(0) : (hasElse ? ctx.algo(1) : null);
+    
+    // If NOT without else, we still process normally but with no else branch
+    if (isNot && !hasElse) {
+        thenAlgo = null;  // Nothing happens if condition is false (which is now true due to NOT)
+        elseAlgo = ctx.algo(0);  // Execute this when condition is false (which is now true)
+    }
+    
+    // Check if this is an OR or AND operator at the top level
+    if (termCtx.binop() != null) {
+        String op = visitBinop(termCtx.binop());
+        
+        if (op.equals("or") || op.equals("and")) {
+            // Handle boolean operators specially in branch context
+            int currentLabel = ++labelCounter;
+            String tLabel = "T" + currentLabel;
+            String exitLabel = "Exit" + currentLabel;
+            
+            String left = visit(termCtx.term(0));
+            String right = visit(termCtx.term(1));
+            
+            String[] leftParts = parseTerm(left);
+            String[] rightParts = parseTerm(right);
+            
+            if (op.equals("or")) {
+                // For OR: if left is true OR right is true, execute then branch
+                code.append("IF ").append(leftParts[0]).append(" ").append(leftParts[1])
+                    .append(" ").append(leftParts[2]).append(" THEN ").append(tLabel).append("\n");
+                code.append("IF ").append(rightParts[0]).append(" ").append(rightParts[1])
+                    .append(" ").append(rightParts[2]).append(" THEN ").append(tLabel).append("\n");
+                code.append("GOTO ").append(exitLabel).append("\n");
+                code.append("REM ").append(tLabel).append("\n");
+                
+                // Then branch (condition is true)
+                if (thenAlgo != null) {
+                    String thenCode = visit(thenAlgo);
+                    if (thenCode != null && !thenCode.isEmpty()) {
+                        code.append(thenCode).append("\n");
+                    }
+                }
+                
+                code.append("REM ").append(exitLabel).append("\n");
+                
+                // Else branch (condition is false)
+                if (elseAlgo != null) {
+                    String elseCode = visit(elseAlgo);
+                    if (elseCode != null && !elseCode.isEmpty()) {
+                        code.append(elseCode).append("\n");
+                    }
+                }
+            } else if (op.equals("and")) {
+                // Handle AND
+                int fLabelNum = ++labelCounter;
+                String fLabel = "F" + fLabelNum;
+                
+                code.append("IF ").append(leftParts[0]).append(" ").append(leftParts[1])
+                    .append(" ").append(leftParts[2]).append(" THEN ").append(tLabel).append("\n");
+                code.append("GOTO ").append(fLabel).append("\n");
+                code.append("REM ").append(tLabel).append("\n");
+                code.append("IF ").append(rightParts[0]).append(" ").append(rightParts[1])
+                    .append(" ").append(rightParts[2]).append(" THEN ").append(tLabel).append("\n");
+                code.append("GOTO ").append(fLabel).append("\n");
+                code.append("REM ").append(tLabel).append("\n");
+                
+                // Then branch
+                if (thenAlgo != null) {
+                    String thenCode = visit(thenAlgo);
+                    if (thenCode != null && !thenCode.isEmpty()) {
+                        code.append(thenCode).append("\n");
+                    }
+                }
+                
+                code.append("REM ").append(fLabel).append("\n");
+                
+                // Else branch
+                if (elseAlgo != null) {
+                    String elseCode = visit(elseAlgo);
+                    if (elseCode != null && !elseCode.isEmpty()) {
+                        code.append(elseCode).append("\n");
+                    }
+                }
             }
+            
+            return code.toString().trim();
         }
-
-        code.append("GOTO ").append(exitLabel).append("\n");
-        code.append("REM ").append(tLabel).append("\n");
-
+    }
+    
+    // Handle simple (non-boolean-operator) conditions
+    String termCode = visit(termCtx);
+    
+    int currentLabel = ++labelCounter;
+    String tLabel = "T" + currentLabel;
+    String exitLabel = "Exit" + currentLabel;
+    
+    String[] termParts = parseTerm(termCode);
+    String t1 = termParts[0];
+    String op = termParts[1];
+    String t2 = termParts[2];
+    
+    code.append("IF ").append(t1).append(" ").append(op).append(" ").append(t2)
+        .append(" THEN ").append(tLabel).append("\n");
+    
+    // Else branch (executed when condition is false)
+    if (elseAlgo != null) {
+        String elseCode = visit(elseAlgo);
+        if (elseCode != null && !elseCode.isEmpty()) {
+            code.append(elseCode).append("\n");
+        }
+    }
+    
+    code.append("GOTO ").append(exitLabel).append("\n");
+    code.append("REM ").append(tLabel).append("\n");
+    
+    // Then branch (executed when condition is true)
+    if (thenAlgo != null) {
         String thenCode = visit(thenAlgo);
         if (thenCode != null && !thenCode.isEmpty()) {
             code.append(thenCode).append("\n");
         }
-
-        code.append("REM ").append(exitLabel);
-        return code.toString().trim();
     }
+    
+    code.append("REM ").append(exitLabel);
+    return code.toString().trim();
+}
 
     @Override
     public String visitLoop(SPLParser.LoopContext ctx) {
@@ -308,5 +409,9 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
             code.append("REM ").append(fLabel);
         }
         return code.toString().trim();
+    }
+
+    public void resetLabelCounter() {
+        this.labelCounter = 0;
     }
 }

@@ -36,7 +36,7 @@ public class TokenizerTest {
             
         // Test 7: Control Structures - IF
         testProgram("Test 7 - IF Statement", 
-            "main { if ( x gt 0 ) { print x } halt }");
+            "main { if ( x > 0 ) { print x } halt }");
             
         // Test 8: Control Structures - IF-ELSE
         testProgram("Test 8 - IF-ELSE", 
@@ -44,11 +44,11 @@ public class TokenizerTest {
             
         // Test 9: While Loop
         testProgram("Test 9 - WHILE Loop", 
-            "main { while ( x gt 0 ) { x = ( x minus 1 ) } halt }");
+            "main { while ( x > 0 ) { x = ( x minus 1 ) } halt }");
             
         // Test 10: Do-Until Loop
         testProgram("Test 10 - DO-UNTIL Loop", 
-            "main { do { x = ( x plus 1 ) } until ( x gt 10 ) }");
+            "main { do { x = ( x plus 1 ) } until ( x > 10 ) }");
             
         // Test 11: Complex Expressions
         testProgram("Test 11 - Complex Expressions", 
@@ -64,7 +64,7 @@ public class TokenizerTest {
             
         // Test 14: All Comparison Operators
         testProgram("Test 14 - Comparisons", 
-            "main { if ( ( x eq y ) or ( a gt b ) ) { halt } }");
+            "main { if ( ( x eq y ) or ( a > b ) ) { halt } }");
             
         // Test 15: String Literals
         testProgram("Test 15 - Strings", 

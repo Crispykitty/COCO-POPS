@@ -206,7 +206,7 @@ public class SPLLexer implements ILexer {
             // Binary operators
             case "eq":
                 return TokenKind.EQ;
-            case "gt":
+            case ">":
                 return TokenKind.GT;
             case "or":
                 return TokenKind.OR;

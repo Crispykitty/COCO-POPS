@@ -26,7 +26,7 @@ public class TypeCheckerDemo {
             "main { " +
             "  var { } " +
             "  result = getx ( ) ; " +
-            "  if ( result gt 0 ) { print result } ; " +
+            "  if ( result > 0 ) { print result } ; " +
             "  halt " +
             "}";
         

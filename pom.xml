@@ -82,13 +82,72 @@
                 </executions>
             </plugin>
             
+            <!-- Exec plugin with multiple execution profiles -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
+                <executions>
+                    <!-- Default execution: Run tests -->
+                    <execution>
+                        <id>default-cli</id>
+                        <configuration>
+                            <mainClass>backend.codeGen.CodeGenTests</mainClass>
+                        </configuration>
+                    </execution>
+                    
+                    <!-- Execution for running the compiler on a file -->
+                    <execution>
+                        <id>compile-file</id>
+                        <configuration>
+                            <mainClass>frontend.Main</mainClass>
+                            <arguments>
+                                <argument>${input.file}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- JAR plugin to create executable JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
                 <configuration>
-                    <mainClass>backend.codeGen.CodeGenTests</mainClass>
+                    <archive>
+                        <manifest>
+                            <mainClass>frontend.Main</mainClass>
+                            <addClasspath>true</addClasspath>
+                        </manifest>
+                    </archive>
                 </configuration>
+            </plugin>
+            
+            <!-- Assembly plugin to create a fat JAR with all dependencies -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>frontend.Main</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

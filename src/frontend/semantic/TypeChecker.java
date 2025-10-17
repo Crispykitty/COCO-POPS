@@ -173,14 +173,14 @@ public class TypeChecker extends SPLBaseVisitor<TypeSystem.SPLType> {
         // Check parameters
         visit(ctx.param());
         
-        // Check local variables (functions have maxthree directly)
-        visit(ctx.maxthree());
+        // Check body (which contains local variables and algorithm)
+        visit(ctx.body());
         
         // Check return value is numeric
         TypeSystem.SPLType returnType = visit(ctx.atom());
         if (returnType != TypeSystem.SPLType.NUMERIC) {
             addError("Function '" + funcName + "' must return a numeric value, found: " + 
-                     typeSystem.typeToString(returnType));
+                    typeSystem.typeToString(returnType));
         }
         
         return TypeSystem.SPLType.TYPELESS;

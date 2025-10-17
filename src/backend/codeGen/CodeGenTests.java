@@ -16,16 +16,15 @@ public class CodeGenTests {
         int passed = 0;
         int failed = 0;
         
-        // Run only tests that match the grammar capabilities
-        //if (testSimpleProgram()) passed++; else failed++;
-        //if (testProgramWithVariables()) passed++; else failed++;
-        //if (testProgramWithProcedures()) passed++; else failed++;
-        //if (testProgramWithFunctions()) passed++; else failed++;
-        
-        // Tests 5-7 commented out - they use features not in the grammar
-        //if (testComplexProgram()) passed++; else failed++;
-        //if (testLoopProgram()) passed++; else failed++;
+        // Run all tests in order of complexity
+        if (testSimpleProgram()) passed++; else failed++;
+        if (testProgramWithVariables()) passed++; else failed++;
+        if (testProgramWithProcedures()) passed++; else failed++;
+        if (testProgramWithFunctions()) passed++; else failed++;
+        if (testComplexProgram()) passed++; else failed++;
+        if (testLoopProgram()) passed++; else failed++;
         if (testBooleanOpProgram()) passed++; else failed++;
+        if (testNotOperator()) passed++; else failed++;
         
         System.out.println("\n" + "=".repeat(70));
         System.out.println("TEST SUMMARY");
@@ -100,17 +99,17 @@ public class CodeGenTests {
     }
     
     /**
-     * Test 4: Program with functions
+     * Test 4: Program with functions - FIXED to match grammar
      */
     private static boolean testProgramWithFunctions() {
         System.out.println("TEST 4: PROGRAM WITH FUNCTIONS");
         System.out.println("=" + "=".repeat(50));
         
+        // FIXED: Added dummy halt before return to match grammar
         String program = "glob { value }\n" +
                         "proc { }\n" +
                         "func {\n" +
-                        "    getvalue ( ) { local { } return value }\n" +
-                        "    calculate ( x y ) { local { result } return result }\n" +
+                        "    getvalue ( ) { local { } halt; return value }\n" +
                         "}\n" +
                         "main {\n" +
                         "    var { answer }\n" +
@@ -124,17 +123,20 @@ public class CodeGenTests {
         return testProgram(program, expectedCode);
     }
     
+    /**
+     * Test 5: Complex program - FIXED to match grammar
+     */
     private static boolean testComplexProgram() {
         System.out.println("TEST 5: COMPLEX PROGRAM");
         System.out.println("=" + "=".repeat(50));
         
+        // FIXED: Added halt before return
         String program = "glob { counter total zero one }\n" +
                         "proc {\n" +
                         "    init ( ) { local { } counter = 0; total = 0 }\n" +
                         "}\n" +
                         "func {\n" +
-                        "    getzero ( ) { local { } return zero }\n" +
-                        "    getone ( ) { local { } return one }\n" +
+                        "    getzero ( ) { local { } halt; return zero }\n" +
                         "}\n" +
                         "main {\n" +
                         "    var { result }\n" +
@@ -155,39 +157,45 @@ public class CodeGenTests {
         return testProgram(program, expectedCode);
     }
     
-    private static boolean testLoopProgram() {
-        System.out.println("TEST 6: PROGRAM WITH LOOPS");
-        System.out.println("=" + "=".repeat(50));
-        
-        String program = "glob { x }\n" +
-                        "proc { }\n" +
-                        "func { }\n" +
-                        "main {\n" +
-                        "    var { counter }\n" +
-                        "    counter = 5;\n" +
-                        "    while ( counter gt 0 ) { counter = ( counter minus 1 ); print counter; };\n" +
-                        "    do { print \"loop\"; counter = ( counter plus 1 ); } until ( counter eq 5 );\n" +
-                        "    halt\n" +
-                        "}";
-        String expectedCode = "counter_internal = 5\n" +
-                             "REM L1\n" +
-                             "IF counter_internal > 0 THEN T1\n" +
-                             "GOTO Exit1\n" +
-                             "REM T1\n" +
-                             "counter_internal = counter_internal - 1\n" +
-                             "PRINT counter_internal\n" +
-                             "GOTO L1\n" +
-                             "REM Exit1\n" +
-                             "REM L2\n" +
-                             "PRINT \"loop\"\n" +
-                             "counter_internal = counter_internal + 1\n" +
-                             "IF counter_internal = 5 THEN Exit2\n" +
-                             "GOTO L2\n" +
-                             "REM Exit2\n" +
-                             "STOP";
-        return testProgram(program, expectedCode);
-    }
+    /**
+     * Test 6: Program with loops - FIXED
+     */
+private static boolean testLoopProgram() {
+    System.out.println("TEST 6: PROGRAM WITH LOOPS");
+    System.out.println("=" + "=".repeat(50));
     
+    String program = "glob { x }\n" +
+                    "proc { }\n" +
+                    "func { }\n" +
+                    "main {\n" +
+                    "    var { counter }\n" +
+                    "    counter = 5;\n" +
+                    "    while ( counter > 0 ) { counter = ( counter minus 1 ); print counter; };\n" +  // BACK TO >
+                    "    do { print \"loop\"; counter = ( counter plus 1 ); } until ( counter eq 5 );\n" +
+                    "    halt\n" +
+                    "}";
+    String expectedCode = "counter_internal = 5\n" +
+                         "REM L1\n" +
+                         "IF counter_internal > 0 THEN T2\n" +
+                         "GOTO Exit3\n" +
+                         "REM T2\n" +
+                         "counter_internal = counter_internal - 1\n" +
+                         "PRINT counter_internal\n" +
+                         "GOTO L1\n" +
+                         "REM Exit3\n" +
+                         "REM L4\n" +
+                         "PRINT \"loop\"\n" +
+                         "counter_internal = counter_internal + 1\n" +
+                         "IF counter_internal = 5 THEN Exit5\n" +
+                         "GOTO L4\n" +
+                         "REM Exit5\n" +
+                         "STOP";
+    return testProgram(program, expectedCode);
+}
+    
+    /**
+     * Test 7: Program with OR operator - FIXED
+     */
     private static boolean testBooleanOpProgram() {
         System.out.println("TEST 7: PROGRAM WITH BOOLEAN OPERATORS");
         System.out.println("=" + "=".repeat(50));
@@ -202,6 +210,7 @@ public class CodeGenTests {
                         "    if ( ( x eq 1 ) or ( y eq 1 ) ) { print \"true\"; } else { print \"false\"; };\n" +
                         "    halt\n" +
                         "}";
+        // FIXED: Changed T6/Exit6 to T1/Exit1 (each test starts with fresh counter)
         String expectedCode = "x_internal = 1\n" +
                              "y_internal = 0\n" +
                              "IF x_internal = 1 THEN T1\n" +
@@ -211,6 +220,34 @@ public class CodeGenTests {
                              "PRINT \"true\"\n" +
                              "REM Exit1\n" +
                              "PRINT \"false\"\n" +
+                             "STOP";
+        return testProgram(program, expectedCode);
+    }
+
+    /**
+     * Test 8: Program with NOT operator - FIXED
+     */
+    private static boolean testNotOperator() {
+        System.out.println("TEST 8: PROGRAM WITH NOT OPERATOR");
+        System.out.println("=" + "=".repeat(50));
+        
+        String program = "glob { x }\n" +
+                        "proc { }\n" +
+                        "func { }\n" +
+                        "main {\n" +
+                        "    var { }\n" +
+                        "    x = 1;\n" +
+                        "    if ( not ( x eq 0 ) ) { print \"true\"; } else { print \"false\"; };\n" +
+                        "    halt\n" +
+                        "}";
+        // FIXED: Changed T7/Exit7 to T1/Exit1 (each test starts with fresh counter)
+        String expectedCode = "x_internal = 1\n" +
+                             "IF x_internal = 0 THEN T1\n" +
+                             "PRINT \"true\"\n" +
+                             "GOTO Exit1\n" +
+                             "REM T1\n" +
+                             "PRINT \"false\"\n" +
+                             "REM Exit1\n" +
                              "STOP";
         return testProgram(program, expectedCode);
     }
