@@ -1,9 +1,0 @@
-x_internal = 1
-y_internal = 0
-IF x_internal = 0 THEN T1
-PRINT "true"
-GOTO Exit1
-REM T1
-PRINT "false"
-REM Exit1
-STOP

@@ -58,7 +58,7 @@ public class TypeCheckerComprehensiveTests {
             "  var { } " +
             "  x = 5 ; " +
             "  y = 10 ; " +
-            "  if ( x gt y ) { " +
+            "  if ( x > y ) { " +
             "    print \"x greater\" " +
             "  } else { " +
             "    print \"y greater\" " +
@@ -78,7 +78,7 @@ public class TypeCheckerComprehensiveTests {
             "  var { } " +
             "  age = 25 ; " +
             "  income = 50000 ; " +
-            "  if ( ( age gt 18 ) and ( income gt 30000 ) ) { " +
+            "  if ( ( age > 18 ) and ( income > 30000 ) ) { " +
             "    print \"Approved\" " +
             "  } ; " +
             "  halt " +
@@ -158,7 +158,7 @@ public class TypeCheckerComprehensiveTests {
             "  y = 20 ; " +
             "  z = 5 ; " +
             "  result = ( ( x plus y ) mult ( z minus 2 ) ) ; " +
-            "  if ( ( result gt 50 ) or ( z eq 5 ) ) { " +
+            "  if ( ( result > 50 ) or ( z eq 5 ) ) { " +
             "    print result " +
             "  } ; " +
             "  halt " +
@@ -176,7 +176,7 @@ public class TypeCheckerComprehensiveTests {
             "func { } " +
             "main { " +
             "  var { } " +
-            "  x = ( 5 gt 3 ) ; " +  // ERROR: assigning boolean to numeric variable
+            "  x = ( 5 > 3 ) ; " +  // ERROR: assigning boolean to numeric variable
             "  halt " +
             "}";
         runTypeCheck(program);

@@ -1,0 +1,26 @@
+glob { x y z }
+proc { }
+func { }
+main {
+    var { result }
+    x = 10;
+    y = 5;
+    z = 2;
+    
+    result = ( ( x plus y ) mult z );
+    print result;
+    
+    result = ( x div ( y minus z ) );
+    print result;
+    
+    result = ( neg ( x minus y ) );
+    print result;
+    
+    if ( ( ( x > y ) and ( y > z ) ) or ( z eq 0 ) ) {
+        print "complex true";
+    } else {
+        print "complex false";
+    };
+    
+    halt
+}

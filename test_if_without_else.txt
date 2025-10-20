@@ -1,0 +1,18 @@
+glob { x }
+proc { }
+func { }
+main {
+    var { }
+    x = 5;
+    
+    if ( x > 0 ) {
+        print "positive";
+    };
+    
+    if ( x eq 0 ) {
+        print "zero";
+    };
+    
+    print "done";
+    halt
+}

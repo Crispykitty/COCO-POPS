@@ -5,6 +5,7 @@ import java.util.*;
 /**
  * Type System for SPL
  * Defines all types and type checking rules according to SPL_Types.pdf
+ * FIXED: Corrected > symbol (was incorrectly "<")
  */
 public class TypeSystem {
     
@@ -36,6 +37,7 @@ public class TypeSystem {
     
     /**
      * Get the type of a binary operator
+     * FIXED: Changed "<" to ">" to match SPL grammar
      */
     public SPLType getBinaryOperatorType(String operator) {
         switch (operator) {
@@ -53,7 +55,7 @@ public class TypeSystem {
             
             // Comparison operators
             case "eq":
-            case "gt":  // > symbol
+            case ">":  // FIXED: Was "<", now correct ">" symbol
                 return SPLType.COMPARISON;
             
             default:

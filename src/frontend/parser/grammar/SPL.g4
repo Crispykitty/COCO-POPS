@@ -145,7 +145,7 @@ ASSIGN : '=' ;
 
 // Rule 2: user-defined-name [a-z][a-z0-9]*
 // Must come AFTER keywords due to precedence
-IDENT : [a-z][a-z0-9]* ;
+IDENT : [a-z][a-z]*[0-9]* ;
 
 // Rule 3: numbers (0 | [1-9][0-9]*)
 NUMBER : '0' | [1-9][0-9]* ;

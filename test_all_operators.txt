@@ -1,0 +1,31 @@
+glob { a b }
+proc { }
+func { }
+main {
+    var { r1 r2 r3 r4 r5 r6 r7 r8 }
+    a = 10;
+    b = 3;
+    
+    r1 = ( a plus b );
+    print r1;
+    
+    r2 = ( a minus b );
+    print r2;
+    
+    r3 = ( a mult b );
+    print r3;
+    
+    r4 = ( a div b );
+    print r4;
+    
+    r5 = ( neg a );
+    print r5;
+    
+    if ( a eq 10 ) { print "eq works"; };
+    if ( a > 5 ) { print "greater works"; };
+    if ( ( a > 5 ) or ( b eq 0 ) ) { print "or works"; };
+    if ( ( a eq 10 ) and ( b eq 3 ) ) { print "and works"; };
+    if ( not ( a eq 0 ) ) { print "not works"; };
+    
+    halt
+}
