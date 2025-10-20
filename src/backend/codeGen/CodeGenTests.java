@@ -25,6 +25,8 @@ public class CodeGenTests {
         if (testLoopProgram()) passed++; else failed++;
         if (testBooleanOpProgram()) passed++; else failed++;
         if (testNotOperator()) passed++; else failed++;
+        if (testBASICGeneration()) passed++; else failed++;
+        if (testSimpleInlining()) passed++; else failed++;
         
         System.out.println("\n" + "=".repeat(70));
         System.out.println("TEST SUMMARY");
@@ -251,7 +253,172 @@ private static boolean testLoopProgram() {
                              "STOP";
         return testProgram(program, expectedCode);
     }
+
+/**
+ * Test 9: Generate executable BASIC code with inlining
+ */
+private static boolean testBASICGeneration() {
+    System.out.println("TEST 9: EXECUTABLE BASIC CODE GENERATION WITH INLINING");
+    System.out.println("=" + "=".repeat(50));
     
+    String program = "glob { counter total zero }\n" +
+                    "proc {\n" +
+                    "    init ( ) { local { } counter = 0; total = 0 }\n" +
+                    "}\n" +
+                    "func {\n" +
+                    "    getzero ( ) { local { } halt; return zero }\n" +
+                    "}\n" +
+                    "main {\n" +
+                    "    var { result }\n" +
+                    "    init ( );\n" +
+                    "    result = getzero ( );\n" +
+                    "    if ( result eq 0 ) { print \"zero found\"; } else { print \"not zero\"; };\n" +
+                    "    halt\n" +
+                    "}";
+    
+    String expectedInlinedCode = 
+        "counter_internal = 0\n" +
+        "total_internal = 0\n" +
+        "STOP\n" +
+        "result_internal = zero_internal\n" +
+        "IF result_internal = 0 THEN T1\n" +
+        "PRINT \"not zero\"\n" +
+        "GOTO Exit1\n" +
+        "REM T1\n" +
+        "PRINT \"zero found\"\n" +
+        "REM Exit1\n" +
+        "STOP";
+    
+    String expectedBASIC = 
+        "10 counter_internal = 0\n" +
+        "20 total_internal = 0\n" +
+        "30 STOP\n" +
+        "40 result_internal = zero_internal\n" +
+        "50 IF result_internal = 0 THEN 80\n" +
+        "60 PRINT \"not zero\"\n" +
+        "70 GOTO 100\n" +
+        "80 REM T1\n" +
+        "90 PRINT \"zero found\"\n" +
+        "100 REM Exit1\n" +
+        "110 STOP";
+    
+    try {
+        SPLParserWrapper parser = new SPLParserWrapper(program);
+        SPLParser.Spl_progContext tree = parser.parse();
+        SymbolTable symbolTable = parser.getSymbolTable();
+        
+        // Phase 1: Generate intermediate code
+        SPLCodeGenerator codeGenerator = new SPLCodeGenerator(symbolTable);
+        String intermediateCode = codeGenerator.generateCode(tree);
+        
+        System.out.println("Phase 1 - Intermediate Code:");
+        System.out.println(intermediateCode);
+        System.out.println();
+        
+        // Phase 2: Perform inlining
+        Inliner inliner = new Inliner(symbolTable, tree);
+        String inlinedCode = inliner.inline(intermediateCode);
+        
+        System.out.println("Phase 2 - Inlined Code:");
+        System.out.println(inlinedCode);
+        System.out.println();
+        
+        System.out.println("Expected Inlined Code:");
+        System.out.println(expectedInlinedCode);
+        System.out.println();
+        
+        // Phase 3: Generate BASIC code
+        BASICGenerator basicGen = new BASICGenerator();
+        String basicCode = basicGen.generateBASIC(inlinedCode);
+        
+        System.out.println("Phase 3 - Executable BASIC:");
+        System.out.println(basicCode);
+        System.out.println();
+        
+        System.out.println("Expected BASIC Code:");
+        System.out.println(expectedBASIC);
+        System.out.println();
+        
+        boolean inlinedMatch = inlinedCode.trim().equals(expectedInlinedCode.trim());
+        boolean basicMatch = basicCode.trim().equals(expectedBASIC.trim());
+        
+        if (inlinedMatch && basicMatch) {
+            System.out.println("✓ PASS: Inlining and BASIC generation successful!");
+            System.out.println("\n" + "=".repeat(70) + "\n");
+            return true;
+        } else {
+            if (!inlinedMatch) {
+                System.out.println("✗ FAIL: Inlined code does not match expected.");
+            }
+            if (!basicMatch) {
+                System.out.println("✗ FAIL: BASIC code does not match expected.");
+            }
+            System.out.println("\n" + "=".repeat(70) + "\n");
+            return false;
+        }
+    } catch (Exception e) {
+        System.err.println("✗ FAIL: " + e.getMessage());
+        e.printStackTrace();
+        return false;
+    }
+}
+
+/**
+ * Test 10: Simple program with inlining (OR operator test)
+ */
+private static boolean testSimpleInlining() {
+    System.out.println("TEST 10: SIMPLE INLINING TEST");
+    System.out.println("=" + "=".repeat(50));
+    
+    String program = "glob { x y }\n" +
+                    "proc { }\n" +
+                    "func { }\n" +
+                    "main {\n" +
+                    "    var { }\n" +
+                    "    x = 1;\n" +
+                    "    y = 0;\n" +
+                    "    if ( ( x eq 1 ) or ( y eq 1 ) ) { print \"true\"; } else { print \"false\"; };\n" +
+                    "    halt\n" +
+                    "}";
+    
+    try {
+        SPLParserWrapper parser = new SPLParserWrapper(program);
+        SPLParser.Spl_progContext tree = parser.parse();
+        SymbolTable symbolTable = parser.getSymbolTable();
+        
+        SPLCodeGenerator codeGen = new SPLCodeGenerator(symbolTable);
+        String intermediateCode = codeGen.generateCode(tree);
+        
+        // No function/procedure calls, so inlining should return same code
+        Inliner inliner = new Inliner(symbolTable, tree);
+        String inlinedCode = inliner.inline(intermediateCode);
+        
+        BASICGenerator basicGen = new BASICGenerator();
+        String basicCode = basicGen.generateBASIC(inlinedCode);
+        
+        System.out.println("Generated BASIC:");
+        System.out.println(basicCode);
+        System.out.println();
+        
+        // Should have line numbers and resolved labels
+        boolean hasLineNumbers = basicCode.contains("10 ") && basicCode.contains("20 ");
+        boolean hasResolvedLabels = basicCode.contains("THEN 60") || basicCode.contains("THEN 70");
+        
+        if (hasLineNumbers && hasResolvedLabels) {
+            System.out.println("✓ PASS: Simple inlining test successful!");
+            System.out.println("\n" + "=".repeat(70) + "\n");
+            return true;
+        } else {
+            System.out.println("✗ FAIL: Line numbers or labels not properly resolved.");
+            System.out.println("\n" + "=".repeat(70) + "\n");
+            return false;
+        }
+    } catch (Exception e) {
+        System.err.println("✗ FAIL: " + e.getMessage());
+        e.printStackTrace();
+        return false;
+    }
+}
     
     //Helper method to test a program and compare generated code
     

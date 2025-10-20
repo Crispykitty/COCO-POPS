@@ -1,0 +1,10 @@
+glob { x y }
+proc { }
+func { }
+main {
+    var { }
+    x = 1;
+    y = 0;
+    if ( ( x eq 1 ) or ( y eq 1 ) ) { print "true"; } else { print "false"; };
+    halt
+}

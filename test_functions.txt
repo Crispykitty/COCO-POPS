@@ -1,0 +1,14 @@
+glob { counter total zero }
+proc {
+    init ( ) { local { } counter = 0; total = 0 }
+}
+func {
+    getzero ( ) { local { } halt; return zero }
+}
+main {
+    var { result }
+    init ( );
+    result = getzero ( );
+    if ( result eq 0 ) { print "zero found"; } else { print "not zero"; };
+    halt
+}

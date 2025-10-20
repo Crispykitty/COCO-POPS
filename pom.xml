@@ -100,7 +100,7 @@
                     <execution>
                         <id>compile-file</id>
                         <configuration>
-                            <mainClass>frontend.Main</mainClass>
+                            <mainClass>Main</mainClass>
                             <arguments>
                                 <argument>${input.file}</argument>
                             </arguments>
@@ -117,7 +117,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>frontend.Main</mainClass>
+                            <mainClass>Main</mainClass>
                             <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
@@ -132,7 +132,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>frontend.Main</mainClass>
+                            <mainClass>Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
