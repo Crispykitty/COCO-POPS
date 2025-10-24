@@ -1,5 +1,4 @@
 # SPL COMPILER - USER MANUAL
----
 
 ## 1. HOW TO RUN
 
