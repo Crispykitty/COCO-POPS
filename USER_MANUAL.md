@@ -1,21 +1,7 @@
 # SPL COMPILER - USER MANUAL
-**COS 341 Semester Project 2025**
-
 ---
 
-## 1. PROJECT TYPE DECLARATION
-
-**PROJECT TYPE:** Type A (Full Compiler)
-
-**Components Implemented:**
-- ✓ Complete Front-End (Lexer + Parser using ANTLR4)
-- ✓ Complete Semantic Analysis (Name/Scope Resolution + Type Checking)
-- ✓ Complete Back-End (Intermediate Code Generation + BASIC Code Generation)
-
-
----
-
-## 2. HOW TO RUN
+## 1. HOW TO RUN
 
 ### Command Syntax:
 ```bash
@@ -43,7 +29,7 @@ java -jar spl-compiler.jar test_simple.txt
 
 ---
 
-## 3. OUTPUT MESSAGES
+## 2. OUTPUT MESSAGES
 
 ### SUCCESS MESSAGES:
 When compilation succeeds, you will see:
@@ -91,7 +77,7 @@ Copy the generated `.bas` file content and test it at:
 
 ---
 
-## 4. GROUP MEMBERS
+## 3. GROUP MEMBERS
 
 1. **Tukelo Mokwena** - u22536800
 2. **Nigel Mofati** - u22528084
