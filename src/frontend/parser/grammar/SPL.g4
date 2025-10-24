@@ -127,7 +127,7 @@ NOT    : 'not' ;
 
 // Binary operators
 EQ     : 'eq' ;
-GT     : '>' ;      // CHANGED: From 'gt' to '>' to match specification
+GT     : '>' ;      //I CHANGED: From 'gt' to '>' to match specification 
 OR     : 'or' ;
 AND    : 'and' ;
 PLUS   : 'plus' ;

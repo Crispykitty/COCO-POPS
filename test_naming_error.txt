@@ -1,0 +1,7 @@
+glob { x }
+proc { }
+func { }
+main {
+    var { }
+    print y
+}

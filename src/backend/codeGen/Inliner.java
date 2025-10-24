@@ -10,7 +10,7 @@ import java.util.*;
  * 
  * Preconditions:
  * 1. Type checking completed
- * 2. All names are uniquely renamed (via _internal suffix)
+ * 2. All names are uniquely renamed (via  suffix)
  * 3. No recursive call cycles
  */
 public class Inliner {
@@ -287,7 +287,7 @@ public class Inliner {
      * Inline a function call: result_var = CALL funcname arg1 arg2
      */
     private String inlineFunctionCall(String line) {
-        // Parse line: result_internal = CALL funcname arg1 arg2 ...
+        // Parse line: result = CALL funcname arg1 arg2 ...
         String[] parts = line.split("=", 2);
         if (parts.length != 2) return line;
         
@@ -314,9 +314,9 @@ public class Inliner {
         // Generate inlined code
         StringBuilder inlined = new StringBuilder();
         
-        // Step 1: Parameter assignments (p0_internal = arg0, ...)
+        // Step 1: Parameter assignments (p0 = arg0, ...)
         for (int i = 0; i < func.parameters.size() && i < arguments.size(); i++) {
-            String param = func.parameters.get(i) + "_internal";
+            String param = func.parameters.get(i);
             String arg = arguments.get(i);
             inlined.append(param).append(" = ").append(arg).append("\n");
         }
@@ -364,7 +364,7 @@ public class Inliner {
         
         // Step 1: Parameter assignments
         for (int i = 0; i < proc.parameters.size() && i < arguments.size(); i++) {
-            String param = proc.parameters.get(i) + "_internal";
+            String param = proc.parameters.get(i);
             String arg = arguments.get(i);
             inlined.append(param).append(" = ").append(arg).append("\n");
         }
@@ -393,7 +393,7 @@ public class Inliner {
      */
     private String generateAtomCode(SPLParser.AtomContext atom) {
         if (atom.var() != null) {
-            return atom.var().IDENT().getText() + "_internal";
+            return atom.var().IDENT().getText();
         } else if (atom.NUMBER() != null) {
             return atom.NUMBER().getText();
         }

@@ -130,6 +130,9 @@
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
+                    <finalName>spl-compiler</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <outputDirectory>${basedir}</outputDirectory>
                     <archive>
                         <manifest>
                             <mainClass>Main</mainClass>

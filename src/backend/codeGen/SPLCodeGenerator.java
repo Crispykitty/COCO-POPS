@@ -7,27 +7,49 @@ import frontend.parser.antlr.SPLBaseVisitor;
 
 import java.util.*;
 
+/**
+ * FIXED VERSION with proper temporary variable generation per Figure 6.3
+ * 
+ * Key improvements:
+ * 1. Removed _internal suffix (uses symbol table names as-is)
+ * 2. Added temporary variable generation for complex expressions
+ * 3. Proper code emission pattern following textbook
+ */
 public class SPLCodeGenerator extends SPLBaseVisitor<String> {
     private SymbolTable symbolTable;
     private int labelCounter = 0;
+    private int tempCounter = 0;  // NEW: Counter for temporary variables
     private Map<String, String> internalNames;
     private StringBuilder targetCode;
+    private List<String> pendingCode;  // NEW: Accumulates code during expression evaluation
 
     public SPLCodeGenerator(SymbolTable symbolTable) {
         this.symbolTable = symbolTable;
         this.internalNames = new HashMap<>();
         this.targetCode = new StringBuilder();
+        this.pendingCode = new ArrayList<>();
         initializeInternalNames();
     }
 
     private String newLabel(String prefix) {
         return prefix + (++labelCounter);
     }
+    
+    /**
+     * NEW: Generate temporary variable names (T1, T2, T3, ...)
+     * Following Figure 6.3: place = newvar()
+     */
+    private String newTemp() {
+        return "T" + (++tempCounter);
+    }
 
+    /**
+     * FIXED: Use symbol table names as-is (no _internal suffix)
+     */
     private void initializeInternalNames() {
         for (SymbolTable.SymbolEntry entry : symbolTable.getTable().values()) {
             if (entry.type.equals("variable") || entry.type.equals("parameter")) {
-                internalNames.put(entry.name, entry.name + "_internal");
+                internalNames.put(entry.name, entry.name);  // FIXED: No suffix
             }
         }
     }
@@ -105,20 +127,126 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
         return null;
     }
 
+    /**
+     * IMPROVED: Assignment with proper expression evaluation
+     * Following Figure 6.5: Trans(Stat → id := Exp)
+     */
     @Override
     public String visitAssign(SPLParser.AssignContext ctx) {
         String varName = ctx.var().IDENT().getText();
         String internalName = getInternalName(varName, ctx.var());
+        
         if (ctx.name() != null) {
+            // Function call: x = f(args)
             String funcName = ctx.name().IDENT().getText();
             String params = visit(ctx.input());
             return internalName + " = CALL " + funcName + (params != null && !params.isEmpty() ? " " + params : "");
         } else {
-            String termCode = visit(ctx.term());
-            return internalName + " = " + termCode;
+            // Regular assignment: x = TERM
+            // NEW: Clear pending code before evaluating term
+            pendingCode.clear();
+            
+            // Evaluate the term (generates temporaries and code)
+            TermResult result = evaluateTerm(ctx.term());
+            
+            // Build final code: temp assignments + final assignment
+            StringBuilder code = new StringBuilder();
+            for (String line : pendingCode) {
+                code.append(line).append("\n");
+            }
+            code.append(internalName).append(" = ").append(result.place);
+            
+            return code.toString().trim();
         }
     }
 
+    /**
+     * NEW: Evaluate a term and return result with generated code
+     * Following Figure 6.3 pattern
+     */
+    private TermResult evaluateTerm(SPLParser.TermContext ctx) {
+        if (ctx.atom() != null) {
+            // Base case: ATOM
+            return new TermResult(visitAtom(ctx.atom()));
+        } 
+        else if (ctx.unop() != null) {
+            // Unary operation: (UNOP TERM)
+            TermResult operand = evaluateTerm(ctx.term(0));
+            String temp = newTemp();
+            String op = ctx.unop().NEG() != null ? "-" : "";
+            pendingCode.add(temp + " = " + op + operand.place);
+            return new TermResult(temp);
+        }
+        else if (ctx.binop() != null) {
+            String op = visitBinop(ctx.binop());
+            
+            // Special handling for boolean operators (no temporaries needed - handled in conditions)
+            if (op.equals("or") || op.equals("and")) {
+                // For boolean ops in non-condition context, just return string representation
+                TermResult left = evaluateTerm(ctx.term(0));
+                TermResult right = evaluateTerm(ctx.term(1));
+                return new TermResult("(" + left.place + " " + op + " " + right.place + ")");
+            }
+            
+            // Binary operation: (TERM BINOP TERM)
+            // Following Figure 6.3:
+            //   place₁ = newvar()
+            //   place₂ = newvar()
+            //   code₁ = Trans_Exp(Exp₁, place₁)
+            //   code₂ = Trans_Exp(Exp₂, place₂)
+            //   result = code₁ ++ code₂ ++ [place := place₁ op place₂]
+            
+            TermResult left = evaluateTerm(ctx.term(0));
+            TermResult right = evaluateTerm(ctx.term(1));
+            
+            // Generate result temporary
+            String resultTemp = newTemp();
+            pendingCode.add(resultTemp + " = " + left.place + " " + op + " " + right.place);
+            
+            return new TermResult(resultTemp);
+        }
+        
+        return new TermResult("0");
+    }
+
+    /**
+     * Helper class to hold term evaluation result
+     */
+    private static class TermResult {
+        String place;  // The variable/temp holding the result
+        
+        TermResult(String place) {
+            this.place = place;
+        }
+    }
+
+    /**
+     * OLD visitTerm - kept for branch/loop conditions where we need inline expressions
+     * This version doesn't generate temporaries (used in IF conditions)
+     */
+    @Override
+    public String visitTerm(SPLParser.TermContext ctx) {
+        if (ctx.atom() != null) {
+            return visitAtom(ctx.atom());
+        } else if (ctx.unop() != null) {
+            String op = ctx.unop().NEG() != null ? "-" : "";
+            return op + visit(ctx.term(0));
+        } else if (ctx.binop() != null) {
+            String left = visit(ctx.term(0));
+            String right = visit(ctx.term(1));
+            String op = visitBinop(ctx.binop());
+            if (op.equals("or") || op.equals("and")) {
+                return handleBooleanOp(left, op, right);
+            }
+            return left + " " + op + " " + right;
+        }
+        return null;
+    }
+
+    /**
+     * Branch handling - uses visitTerm for inline conditions
+     * (Conditions don't need temporaries - they're evaluated inline in IF statements)
+     */
     @Override
     public String visitBranch(SPLParser.BranchContext ctx) {
         StringBuilder code = new StringBuilder();
@@ -142,11 +270,9 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
             thenAlgo = null;
         }
         
-        // FIXED: Handle nested boolean operators by expanding them inline
         return generateBranchCode(termCtx, thenAlgo, elseAlgo);
     }
 
-    // NEW: Recursive method to handle nested boolean operators
     private String generateBranchCode(SPLParser.TermContext termCtx, 
                                      SPLParser.AlgoContext thenAlgo, 
                                      SPLParser.AlgoContext elseAlgo) {
@@ -199,7 +325,7 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
                     }
                 }
                 
-                code.append("REM ").append(exitLabel).append("\n");
+                code.append("REM ").append(exitLabel);
                 return code.toString().trim();
                 
             } else if (op.equals("and")) {
@@ -297,7 +423,7 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
         return code.toString().trim();
     }
 
-    // NEW: Extract all conditions from a term (handles OR and nested operators)
+    // Helper methods for branch handling (keep existing implementation)
     private List<String> extractConditions(SPLParser.TermContext termCtx) {
         List<String> conditions = new ArrayList<>();
         
@@ -305,37 +431,27 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
             String op = visitBinop(termCtx.binop());
             
             if (op.equals("or")) {
-                // Recursively extract from both sides
                 conditions.addAll(extractConditions(termCtx.term(0)));
                 conditions.addAll(extractConditions(termCtx.term(1)));
             } else if (op.equals("and")) {
-                // For AND inside OR, we need all AND conditions to be true
-                // This creates a complex scenario - treat as single compound condition
                 List<String> andConditions = new ArrayList<>();
                 collectAndConditions(termCtx, andConditions);
-                // For OR purposes, we treat this as "all of these must be true"
-                // which means we should check each one
                 conditions.addAll(andConditions);
             } else {
-                // Comparison operator
                 conditions.add(evaluateTermForCondition(termCtx));
             }
         } else {
-            // Simple condition
             conditions.add(evaluateTermForCondition(termCtx));
         }
         
         return conditions;
     }
 
-    // NEW: Collect all conditions from AND chain
     private void collectAndConditions(SPLParser.TermContext termCtx, List<String> conditions) {
         if (termCtx.binop() != null && visitBinop(termCtx.binop()).equals("and")) {
-            // Recursively collect from both sides
             collectAndConditions(termCtx.term(0), conditions);
             collectAndConditions(termCtx.term(1), conditions);
         } else {
-            // Base case: simple condition
             conditions.add(evaluateTermForCondition(termCtx));
         }
     }
@@ -349,11 +465,19 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
                 return left + " " + op + " " + right;
             }
         }
-        // For atoms, just visit normally
-        if (termCtx.atom() != null) {
-            return visitAtom(termCtx.atom());
-        }
         return visit(termCtx);
+    }
+
+    private String[] parseTerm(String term) {
+        String[] parts = term.split("\\s+");
+        if (parts.length >= 3) {
+            return new String[]{parts[0], parts[1], parts[2]};
+        }
+        return new String[]{term, "=", "0"};
+    }
+
+    private String handleBooleanOp(String left, String op, String right) {
+        return "(" + left + " " + op + " " + right + ")";
     }
 
     @Override
@@ -403,25 +527,6 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
     }
 
     @Override
-    public String visitTerm(SPLParser.TermContext ctx) {
-        if (ctx.atom() != null) {
-            return visitAtom(ctx.atom());
-        } else if (ctx.unop() != null) {
-            String op = ctx.unop().NEG() != null ? "-" : "";
-            return op + visit(ctx.term(0));
-        } else if (ctx.binop() != null) {
-            String left = visit(ctx.term(0));
-            String right = visit(ctx.term(1));
-            String op = visitBinop(ctx.binop());
-            if (op.equals("or") || op.equals("and")) {
-                return handleBooleanOp(left, op, right);
-            }
-            return left + " " + op + " " + right;
-        }
-        return null;
-    }
-
-    @Override
     public String visitAtom(SPLParser.AtomContext ctx) {
         if (ctx.var() != null) {
             return getInternalName(ctx.var().IDENT().getText(), ctx.var());
@@ -462,48 +567,6 @@ public class SPLCodeGenerator extends SPLBaseVisitor<String> {
         if (ctx.MINUS() != null) return "-";
         if (ctx.MULT() != null) return "*";
         if (ctx.DIV() != null) return "/";
-        return null;
-    }
-
-    private String[] parseTerm(String termCode) {
-        String[] parts = termCode.split("\\s+");
-        if (parts.length == 3) {
-            return parts;
-        }
-        return new String[]{termCode, "=", "0"};
-    }
-
-    private String handleBooleanOp(String left, String op, String right) {
-        String tLabel = newLabel("T");
-        String exitLabel = newLabel("Exit");
-        StringBuilder code = new StringBuilder();
-        String[] leftParts = parseTerm(left);
-        String[] rightParts = parseTerm(right);
-
-        if (op.equals("or")) {
-            code.append("IF ").append(leftParts[0]).append(" ").append(leftParts[1])
-                .append(" ").append(leftParts[2]).append(" THEN ").append(tLabel).append("\n");
-            code.append("IF ").append(rightParts[0]).append(" ").append(rightParts[1])
-                .append(" ").append(rightParts[2]).append(" THEN ").append(tLabel).append("\n");
-            code.append("GOTO ").append(exitLabel).append("\n");
-            code.append("REM ").append(tLabel).append("\n");
-            code.append("REM ").append(exitLabel);
-        } else if (op.equals("and")) {
-            String fLabel = newLabel("F");
-            code.append("IF ").append(leftParts[0]).append(" ").append(leftParts[1])
-                .append(" ").append(leftParts[2]).append(" THEN ").append(tLabel).append("\n");
-            code.append("GOTO ").append(fLabel).append("\n");
-            code.append("REM ").append(tLabel).append("\n");
-            code.append("IF ").append(rightParts[0]).append(" ").append(rightParts[1])
-                .append(" ").append(rightParts[2]).append(" THEN ").append(tLabel).append("\n");
-            code.append("GOTO ").append(fLabel).append("\n");
-            code.append("REM ").append(tLabel).append("\n");
-            code.append("REM ").append(fLabel);
-        }
-        return code.toString().trim();
-    }
-
-    public void resetLabelCounter() {
-        this.labelCounter = 0;
+        return "";
     }
 }
