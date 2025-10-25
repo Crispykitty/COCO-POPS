@@ -1,8 +1,0 @@
-glob { x y }
-proc { hello ( ) { print "world" } }
-main { 
-    var { temp }
-    x = 42
-    hello ( )
-    halt 
-}
