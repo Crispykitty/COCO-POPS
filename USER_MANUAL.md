@@ -1,5 +1,21 @@
 # SPL COMPILER - USER MANUAL
 
+---
+
+## PROJECT TYPE: TYPE A (Complete Compiler)
+
+**Implementation Status:** COMPLETE  
+**Marking Value:** 10 Points
+
+**Components Implemented:**
+- ✓ Lexer (Lexical Analysis)
+- ✓ Parser (Syntax Analysis)
+- ✓ Semantic Analyzer (Name/Scope Resolution)
+- ✓ Type Checker (Type Analysis)
+- ✓ Code Generator (Executable BASIC Code)
+
+---
+
 ## 1. HOW TO RUN
 
 ### Command Syntax:
@@ -47,30 +63,29 @@ The compiler detects four types of errors:
 
 **1. Lexical Errors:**
 ```
-✗ Lexical error: invalid character '@'
-✗ Lexical error: string exceeds maximum length
+✗ "Lexical error: invalid character '@'"
 ```
 
 **2. Syntax Errors:**
 ```
-✗ Syntax error: mismatched input 'x' expecting '{'
-✗ Syntax error: missing ';' at line N
+✗ "Syntax error: mismatched input 'x' expecting '{'"
 ```
 
 **3. Naming/Scope Errors:**
 ```
-✗ Naming error: variable 'y' not declared in scope
-✗ Naming error: duplicate variable declaration 'x'
+✗ "Naming error: variable 'y' not declared in scope"
 ```
+*(Corresponds to "Variable Naming and Function Naming accepted" when no errors)*
 
 **4. Type Errors:**
 ```
-✗ Type error: cannot add string and number
-✗ Type error: condition must evaluate to boolean
+✗ "Type error: cannot add string and number"
 ```
+*(Corresponds to "Types accepted" when no errors)*
 
-### Testing Generated BASIC:
-Copy the generated `.bas` file content and test it at:
+### Testing Generated BASIC Code:
+The generated `.bas` file contains executable BASIC code. Test it using:
+- **PCBasic** (Recommended - used for development/testing)
 - https://www.calormen.com/jsbasic/
 - https://www.pcjs.org/machines/pcx86/ibm/5150/mda/256kb/basic/
 
